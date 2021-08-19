@@ -1,10 +1,11 @@
 from __future__ import absolute_import
 
+from loguru import logger
+import time
 
 import threatingestor.artifacts
-from threatingestor.operators import Operator
 from threatingestor.exceptions import DependencyError
-
+from threatingestor.operators import Operator
 
 try:
     import pymisp
@@ -36,6 +37,7 @@ class Plugin(Operator):
             threatingestor.artifacts.URL,
             threatingestor.artifacts.YARASignature,
         ]
+        self.request_counter = 0
 
     def handle_artifact(self, artifact):
         """Operate on a single artifact."""
@@ -54,6 +56,14 @@ class Plugin(Operator):
 
         self._update_or_create_event(event)
 
+    def limit_request_rate(self):
+        if self.request_counter % 10 == 0 and self.request_counter != 0:
+            time.sleep(2)
+        if self.request_counter > 60:
+            logger.debug(f"Too many requests. Waiting 60 secs before making another")
+            time.sleep(60)
+            self.request_counter = 0
+
     def _update_or_create_event(self, event):
         """Update or create an event for the artifact."""
         event_dict = event.to_dict()
@@ -61,10 +71,12 @@ class Plugin(Operator):
         if not attributes:
             return
         # If an event doesn't have "date" field, it is not created int MISP
+        self.limit_request_rate()
         if event_dict.get("date") is None:
             self.api.add_event(event)
         else:
             self.api.update_event(event)
+        self.request_counter += 1
 
     def _find_or_create_event(self, artifact):
         """Find or create an event for the artifact."""
@@ -103,7 +115,11 @@ class Plugin(Operator):
         if artifact.reference_text != "":
             event.add_attribute("text", artifact.reference_text)
         if artifact.source_name != "":
-            event.add_attribute("other",  f'source:{artifact.source_name}')
+            event.add_attribute(
+                "other",
+                f'source:{artifact.source_name}',
+                disable_correlation=True,
+            )
 
         return event
 
