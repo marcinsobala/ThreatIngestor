@@ -70,6 +70,9 @@ class Plugin(Operator):
         attributes = event_dict.get("Attribute", [])
         if not attributes:
             return
+        for attr in attributes:
+            if attr.type.lower() == "other":
+                attr.disable_correlation = True
         # If an event doesn't have "date" field, it is not created int MISP
         self.limit_request_rate()
         if event_dict.get("date") is None:
