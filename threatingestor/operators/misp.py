@@ -71,7 +71,7 @@ class Plugin(Operator):
         if not attributes:
             return
         for attr in attributes:
-            if attr.type.lower() == "other":
+            if attr.type.lower() in ["other", "link"]:
                 attr.disable_correlation = True
         # If an event doesn't have "date" field, it is not created int MISP
         self.limit_request_rate()
@@ -114,7 +114,11 @@ class Plugin(Operator):
 
         # Add references.
         if artifact.reference_link != "":
-            event.add_attribute("link", artifact.reference_link)
+            event.add_attribute(
+                "link",
+                artifact.reference_link,
+                disable_correlation=True,
+            )
         if artifact.reference_text != "":
             event.add_attribute("text", artifact.reference_text)
         if artifact.source_name != "":
