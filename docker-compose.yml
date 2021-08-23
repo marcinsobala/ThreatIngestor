@@ -1,0 +1,12 @@
+#version: "3.3"
+
+threatingestor-docker-custom:
+        image: threatingestor-docker-custom:latest
+        volumes:
+            - ./threatingestor-data/state.db:/opt/threatingestor/state.db
+            - ./threatingestor-data/config.yml:/opt/threatingestor/config.yml 
+
+        environment:
+            - PYTHONPATH=/opt/threatingestor/:$PYTHONPATH 
+
+        command: python3 /opt/threatingestor/threatingestor/__init__.py /opt/threatingestor/config.yml
