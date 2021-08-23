@@ -41,6 +41,7 @@ class Plugin(Operator):
 
     def handle_artifact(self, artifact):
         """Operate on a single artifact."""
+        logger.debug("Hello, is it me you're looking for?")
         event = self._find_or_create_event(artifact)
 
         if isinstance(artifact, threatingestor.artifacts.Domain):
