@@ -9,7 +9,7 @@ ADD . /opt/threatingestor
 WORKDIR /opt/threatingestor
 
 RUN pip3 install threatingestor[all] && \
-    pip3 uninstall threatingestor && \
+    pip3 uninstall -y threatingestor && \
     pip3 install -r requirements.txt
 
 COPY . .
