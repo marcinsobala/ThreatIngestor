@@ -12,7 +12,7 @@ except ImportError:
     notifiers = None
 
 
-import threatingestor.config
+from threatingestor import config, notifiers
 import threatingestor.state
 import threatingestor.exceptions
 import threatingestor.whitelist
