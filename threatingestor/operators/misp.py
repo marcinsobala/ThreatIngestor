@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 from loguru import logger
-import time
 
 import threatingestor.artifacts
 from threatingestor.exceptions import DependencyError
@@ -37,7 +36,8 @@ class Plugin(Operator):
             threatingestor.artifacts.URL,
             threatingestor.artifacts.YARASignature,
         ]
-        self.request_counter = 0
+        self.add_event_counter = 1
+        self.add_event_limit = 100
 
     def handle_artifact(self, artifact):
         """Operate on a single artifact."""        
@@ -56,30 +56,34 @@ class Plugin(Operator):
 
         self._update_or_create_event(event)
 
-    def limit_request_rate(self):
-        if self.request_counter % 10 == 0 and self.request_counter != 0:
-            time.sleep(2)
-        if self.request_counter > 60:
-            logger.debug(f"Too many requests. Waiting 60 secs before making another")
-            time.sleep(60)
-            self.request_counter = 0
-
     def _update_or_create_event(self, event):
         """Update or create an event for the artifact."""
         event_dict = event.to_dict()
         attributes = event_dict.get("Attribute", [])
         if not attributes:
             return
+
+        # If an event doesn't have "date" field, it is not present in MISP
+        is_present = event_dict.get("date") is None
+
+        if is_present and self.add_event_counter > self.add_event_limit:
+            logger.debug(f"Can't add event. 100 new event limit is already reached.")
+            return None
+
+        matches = self.api.values_in_warninglist([x.value for x in attributes])
         for attr in attributes:
             if attr.type.lower() in ["other", "link"]:
                 attr.disable_correlation = True
-        # If an event doesn't have "date" field, it is not created int MISP
-        self.limit_request_rate()
-        if event_dict.get("date") is None:
+            if attr.value in matches:
+                attr.to_ids = False
+
+        if is_present:
+            if self.add_event_counter == self.add_event_limit:
+                event.info += " [hit 100 event limit]"
             self.api.add_event(event)
+            self.add_event_counter += 1
         else:
             self.api.update_event(event)
-        self.request_counter += 1
 
     def _find_or_create_event(self, artifact):
         """Find or create an event for the artifact."""
@@ -114,19 +118,11 @@ class Plugin(Operator):
 
         # Add references.
         if artifact.reference_link != "":
-            event.add_attribute(
-                "link",
-                artifact.reference_link,
-                disable_correlation=True,
-            )
+            event.add_attribute("link", artifact.reference_link)
         if artifact.reference_text != "":
             event.add_attribute("text", artifact.reference_text)
         if artifact.source_name != "":
-            event.add_attribute(
-                "other",
-                f'source:{artifact.source_name}',
-                disable_correlation=True,
-            )
+            event.add_attribute("other", f'source:{artifact.source_name}')
 
         return event
 
